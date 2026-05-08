@@ -1,0 +1,93 @@
+---
+title: "Laboratorio 9: redes neuronales"
+output: html_notebook
+---
+
+```{r carga de datos}
+load("listings_modificado.RData")
+```
+
+```{r paquetes}
+library(caret)
+library(nnet)
+```
+
+```{r conjuntos train y test}
+set.seed(123)
+
+muestra_idx <- sample(1:nrow(listings), size = 10000)
+muestra <- listings[muestra_idx, ]
+
+n <- nrow(muestra)
+train_idx <- sample(1:n, size = 0.7 * n)
+
+train <- muestra[train_idx, ]
+test <- muestra[-train_idx, ]
+```
+
+
+```{r variable respuesta}
+cuts <- quantile(train$price, probs = c(0.33, 0.66), na.rm = TRUE)
+
+train$price_cat <- cut(train$price,
+                       breaks = c(-Inf, cuts[1], cuts[2], Inf),
+                       labels = c("Economica", "Intermedia", "Cara"))
+
+test$price_cat <- cut(test$price,
+                      breaks = c(-Inf, cuts[1], cuts[2], Inf),
+                      labels = c("Economica", "Intermedia", "Cara"))
+
+train$price_cat <- as.factor(train$price_cat)
+test$price_cat  <- as.factor(test$price_cat)
+```
+
+### Redes neuronales
+
+```{r modelo 1}
+set.seed(123)
+
+modelo_nn1 <- nnet(
+  price_cat ~ accommodates + bathrooms_num + bedrooms + beds +
+    host_response_rate + host_acceptance_rate +
+    calculated_host_listings_count + number_of_reviews +
+    reviews_per_month + review_scores_rating +
+    minimum_nights + availability_365 +
+    room_type + host_is_superhost + instant_bookable + bathroom_type,
+  data = train,
+  size = 4,        # numero de neuronas ocultas
+  decay = 5e-4,    # decay
+  maxit = 200,
+  trace = FALSE
+)
+
+# Predicción modelo 1
+pred_nn1 <- predict(modelo_nn1, newdata = test, type = "class")
+pred_nn1 <- factor(pred_nn1, levels = levels(test$price_cat))
+matriz_nn1 <- confusionMatrix(pred_nn1, test$price_cat)
+matriz_nn1
+```
+
+```{r modelo 2}
+set.seed(123)
+
+modelo_nn2 <- nnet(
+  price_cat ~ accommodates + bathrooms_num + bedrooms + beds +
+    host_response_rate + host_acceptance_rate +
+    calculated_host_listings_count + number_of_reviews +
+    reviews_per_month + review_scores_rating +
+    minimum_nights + availability_365 +
+    room_type + host_is_superhost + instant_bookable + bathroom_type,
+  data = train,
+  size = 10,        # número de neuronas ocultas
+  decay = 1e-4,    # menos decay que el modelo 1
+  maxit = 700,     # más iteraciones que el modelo 1
+  trace = FALSE
+)
+
+# Predicción modelo 2
+pred_nn2 <- predict(modelo_nn2, newdata = test, type = "class")
+pred_nn2 <- factor(pred_nn2, levels = levels(test$price_cat))
+matriz_nn2 <- confusionMatrix(pred_nn2, test$price_cat)
+matriz_nn2
+```
+
