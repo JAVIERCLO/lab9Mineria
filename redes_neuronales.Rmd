@@ -1,6 +1,8 @@
 ---
-title: "Laboratorio 9: redes neuronales"
-output: html_notebook
+title: 'Laboratorio 9: redes neuronales'
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r carga de datos}
@@ -91,3 +93,39 @@ matriz_nn2 <- confusionMatrix(pred_nn2, test$price_cat)
 matriz_nn2
 ```
 
+
+```{r inciso 8}
+
+set.seed(123)
+
+
+control <- trainControl(method = "cv", number = 5)
+
+
+grid <- expand.grid(size = c(2, 4, 6),
+                    decay = c(1e-4, 5e-4, 1e-3))
+
+
+modelo_tuneado <- train(
+  price_cat ~ accommodates + bathrooms_num + bedrooms + beds +
+    host_response_rate + host_acceptance_rate +
+    calculated_host_listings_count + number_of_reviews +
+    reviews_per_month + review_scores_rating +
+    minimum_nights + availability_365 +
+    room_type + host_is_superhost + instant_bookable + bathroom_type,
+  data = train,
+  method = "nnet",
+  tuneGrid = grid,
+  trControl = control,
+  maxit = 200,
+  trace = FALSE
+)
+
+
+print(modelo_tuneado$bestTune)
+
+
+pred_tuneado <- predict(modelo_tuneado, newdata = test)
+matriz_tuneada <- confusionMatrix(pred_tuneado, test$price_cat)
+matriz_tuneada
+```
