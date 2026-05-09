@@ -184,3 +184,54 @@ metricas_reg2 <- postResample(pred = pred_reg2, obs = test$price)
 print("Métricas del modelo de regresión 2:")
 print(metricas_reg2)
 ```
+
+``` {r inciso 12 - comparación con modelo de clasificación}
+library(ggplot2)
+set.seed(123)
+
+tamanos <- floor(seq(1000, nrow(train), length.out = 5))
+train_rmse <- numeric(length(tamanos))
+test_rmse <- numeric(length(tamanos))
+
+# bucle para entrenar el modelo con diferentes cantidades de datos
+for(i in seq_along(tamanos)) {
+  idx <- sample(1:nrow(train), tamanos[i])
+  train_subset <- train[idx, ]
+  
+
+  modelo_temp <- nnet(
+    formula_reg, 
+    data = train_subset, 
+    size = 5, 
+    decay = 0.01, 
+    linout = TRUE, 
+    maxit = 200, 
+    trace = FALSE
+  )
+  
+  # predicciones temporales
+  pred_train_temp <- predict(modelo_temp, newdata = train_subset)
+  pred_test_temp <- predict(modelo_temp, newdata = test)
+  
+  
+  train_rmse[i] <- RMSE(pred_train_temp, train_subset$price)
+  test_rmse[i] <- RMSE(pred_test_temp, test$price)
+}
+
+
+resultados_curva <- data.frame(
+  Tamano = rep(tamanos, 2),
+  RMSE = c(train_rmse, test_rmse),
+  Conjunto = rep(c("Entrenamiento", "Validacion"), each = length(tamanos))
+)
+
+
+ggplot(resultados_curva, aes(x = Tamano, y = RMSE, color = Conjunto)) +
+  geom_line(size = 1) + 
+  geom_point(size = 3) + 
+  theme_minimal() +
+  labs(title = "Evolución del error predictivo", 
+       subtitle = "Análisis de curva de aprendizaje",
+       x = "Volumen de datos de entrenamiento", 
+       y = "Error cuadrático medio")
+``` 
