@@ -1818,6 +1818,19 @@ matriz_tuneada</code></pre>
 ## Detection Prevalence           0.3820            0.2523      0.3657
 ## Balanced Accuracy              0.7723            0.6008      0.7695</code></pre>
 </div>
+<div id="modelos-de-regresión" class="section level3">
+<h3>Modelos de Regresión</h3>
+<pre class="r"><code># La variable &#39;price&#39; ya se encuentra en los dataframes train y test.
+# Definimos la fórmula que usaremos para los modelos de regresión,
+# sustituyendo &#39;price_cat&#39; por &#39;price&#39;.
+
+formula_reg &lt;- price ~ accommodates + bathrooms_num + bedrooms + beds +
+  host_response_rate + host_acceptance_rate +
+  calculated_host_listings_count + number_of_reviews +
+  reviews_per_month + review_scores_rating +
+  minimum_nights + availability_365 +
+  room_type + host_is_superhost + instant_bookable + bathroom_type</code></pre>
+</div>
 
 
 

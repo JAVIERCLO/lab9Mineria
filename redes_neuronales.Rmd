@@ -129,3 +129,17 @@ pred_tuneado <- predict(modelo_tuneado, newdata = test)
 matriz_tuneada <- confusionMatrix(pred_tuneado, test$price_cat)
 matriz_tuneada
 ```
+
+### Modelos de Regresión
+
+```{r inciso 9 - variable respuesta regresion}
+
+
+formula_reg <- price ~ accommodates + bathrooms_num + bedrooms + beds +
+  host_response_rate + host_acceptance_rate +
+  calculated_host_listings_count + number_of_reviews +
+  reviews_per_month + review_scores_rating +
+  minimum_nights + availability_365 +
+  room_type + host_is_superhost + instant_bookable + bathroom_type
+
+```
