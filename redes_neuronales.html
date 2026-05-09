@@ -1820,16 +1820,54 @@ matriz_tuneada</code></pre>
 </div>
 <div id="modelos-de-regresión" class="section level3">
 <h3>Modelos de Regresión</h3>
-<pre class="r"><code># La variable &#39;price&#39; ya se encuentra en los dataframes train y test.
-# Definimos la fórmula que usaremos para los modelos de regresión,
-# sustituyendo &#39;price_cat&#39; por &#39;price&#39;.
-
-formula_reg &lt;- price ~ accommodates + bathrooms_num + bedrooms + beds +
+<pre class="r"><code>formula_reg &lt;- price ~ accommodates + bathrooms_num + bedrooms + beds +
   host_response_rate + host_acceptance_rate +
   calculated_host_listings_count + number_of_reviews +
   reviews_per_month + review_scores_rating +
   minimum_nights + availability_365 +
   room_type + host_is_superhost + instant_bookable + bathroom_type</code></pre>
+<pre class="r"><code>set.seed(123)
+modelo_reg1 &lt;- nnet(
+  formula_reg,
+  data = train,
+  size = 5,
+  decay = 0.01,
+  linout = TRUE, 
+  maxit = 200,
+  trace = FALSE
+)
+
+# predicción del modelo 1
+pred_reg1 &lt;- predict(modelo_reg1, newdata = test)
+
+
+set.seed(123)
+modelo_reg2 &lt;- nnet(
+  formula_reg,
+  data = train,
+  size = 12,
+  decay = 0.001,
+  linout = TRUE,
+  maxit = 500,
+  trace = FALSE
+)
+
+# predicción del modelo 2
+pred_reg2 &lt;- predict(modelo_reg2, newdata = test)</code></pre>
+<pre class="r"><code># métricas de error para el modelo 1
+metricas_reg1 &lt;- postResample(pred = pred_reg1, obs = test$price)
+print(&quot;Métricas del modelo de regresión 1:&quot;)</code></pre>
+<pre><code>## [1] &quot;Métricas del modelo de regresión 1:&quot;</code></pre>
+<pre class="r"><code>print(metricas_reg1)</code></pre>
+<pre><code>##         RMSE     Rsquared          MAE 
+## 3893.3144860    0.0365203  893.5263937</code></pre>
+<pre class="r"><code># métricas de error para el modelo 2
+metricas_reg2 &lt;- postResample(pred = pred_reg2, obs = test$price)
+print(&quot;Métricas del modelo de regresión 2:&quot;)</code></pre>
+<pre><code>## [1] &quot;Métricas del modelo de regresión 2:&quot;</code></pre>
+<pre class="r"><code>print(metricas_reg2)</code></pre>
+<pre><code>##      RMSE  Rsquared       MAE 
+## 3943.8738        NA  927.6865</code></pre>
 </div>
 
 

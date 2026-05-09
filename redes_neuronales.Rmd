@@ -133,8 +133,6 @@ matriz_tuneada
 ### Modelos de Regresión
 
 ```{r inciso 9 - variable respuesta regresion}
-
-
 formula_reg <- price ~ accommodates + bathrooms_num + bedrooms + beds +
   host_response_rate + host_acceptance_rate +
   calculated_host_listings_count + number_of_reviews +
@@ -142,4 +140,47 @@ formula_reg <- price ~ accommodates + bathrooms_num + bedrooms + beds +
   minimum_nights + availability_365 +
   room_type + host_is_superhost + instant_bookable + bathroom_type
 
+```
+
+``` {r inciso 10 - modelos de regresion}
+set.seed(123)
+modelo_reg1 <- nnet(
+  formula_reg,
+  data = train,
+  size = 5,
+  decay = 0.01,
+  linout = TRUE, 
+  maxit = 200,
+  trace = FALSE
+)
+
+# predicción del modelo 1
+pred_reg1 <- predict(modelo_reg1, newdata = test)
+
+
+set.seed(123)
+modelo_reg2 <- nnet(
+  formula_reg,
+  data = train,
+  size = 12,
+  decay = 0.001,
+  linout = TRUE,
+  maxit = 500,
+  trace = FALSE
+)
+
+# predicción del modelo 2
+pred_reg2 <- predict(modelo_reg2, newdata = test)
+```
+
+```{r inciso 11 - comparación de  modelos regresión}
+# métricas de error para el modelo 1
+metricas_reg1 <- postResample(pred = pred_reg1, obs = test$price)
+print("Métricas del modelo de regresión 1:")
+print(metricas_reg1)
+
+# métricas de error para el modelo 2
+metricas_reg2 <- postResample(pred = pred_reg2, obs = test$price)
+print("Métricas del modelo de regresión 2:")
+print(metricas_reg2)
 ```
