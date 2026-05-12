@@ -94,6 +94,94 @@ matriz_nn2
 ```
 
 
+```{r inciso 6 - comparacion modelos clasificacion}
+# Tabla comparativa de los dos modelos de clasificación
+comparacion_clf <- data.frame(
+  Modelo = c(
+    "Modelo 1 (size=4, decay=5e-4, maxit=200, activacion=logistica)",
+    "Modelo 2 (size=10, decay=1e-4, maxit=700, activacion=logistica)"
+  ),
+  Accuracy = c(
+    round(matriz_nn1$overall["Accuracy"], 4),
+    round(matriz_nn2$overall["Accuracy"], 4)
+  ),
+  Kappa = c(
+    round(matriz_nn1$overall["Kappa"], 4),
+    round(matriz_nn2$overall["Kappa"], 4)
+  )
+)
+print(comparacion_clf)
+
+# Tiempo de predicción de cada modelo
+start1 <- proc.time()
+invisible(predict(modelo_nn1, newdata = test, type = "class"))
+tiempo_nn1 <- (proc.time() - start1)["elapsed"]
+
+start2 <- proc.time()
+invisible(predict(modelo_nn2, newdata = test, type = "class"))
+tiempo_nn2 <- (proc.time() - start2)["elapsed"]
+
+cat(sprintf("\nTiempo de predicción Modelo 1: %.4f s\n", tiempo_nn1))
+cat(sprintf("Tiempo de predicción Modelo 2: %.4f s\n", tiempo_nn2))
+
+# Análisis de errores por clase
+cat("\nErrores Modelo 1 (filas=predicho, columnas=real):\n")
+print(matriz_nn1$table)
+cat("\nErrores Modelo 2 (filas=predicho, columnas=real):\n")
+print(matriz_nn2$table)
+
+# Clase con más errores en cada modelo
+errores_nn1 <- rowSums(matriz_nn1$table) - diag(matriz_nn1$table)
+errores_nn2 <- rowSums(matriz_nn2$table) - diag(matriz_nn2$table)
+cat("\nClase con más errores - Modelo 1:", names(which.max(errores_nn1)), "\n")
+cat("Clase con más errores - Modelo 2:", names(which.max(errores_nn2)), "\n")
+```
+
+```{r inciso 7 - sobreajuste clasificacion}
+library(ggplot2)
+set.seed(123)
+
+tamanos_clf <- floor(seq(500, nrow(train), length.out = 6))
+acc_train_clf <- numeric(length(tamanos_clf))
+acc_test_clf  <- numeric(length(tamanos_clf))
+
+for (i in seq_along(tamanos_clf)) {
+  idx <- sample(1:nrow(train), tamanos_clf[i])
+  train_sub <- train[idx, ]
+
+  modelo_tmp_clf <- nnet(
+    price_cat ~ accommodates + bathrooms_num + bedrooms + beds +
+      host_response_rate + host_acceptance_rate +
+      calculated_host_listings_count + number_of_reviews +
+      reviews_per_month + review_scores_rating +
+      minimum_nights + availability_365 +
+      room_type + host_is_superhost + instant_bookable + bathroom_type,
+    data = train_sub,
+    size = 4, decay = 5e-4, maxit = 200, trace = FALSE
+  )
+
+  pred_tr_clf <- predict(modelo_tmp_clf, newdata = train_sub, type = "class")
+  pred_ts_clf <- predict(modelo_tmp_clf, newdata = test,      type = "class")
+
+  acc_train_clf[i] <- mean(pred_tr_clf == as.character(train_sub$price_cat))
+  acc_test_clf[i]  <- mean(pred_ts_clf == as.character(test$price_cat))
+}
+
+curva_clf <- data.frame(
+  Tamano   = rep(tamanos_clf, 2),
+  Accuracy = c(acc_train_clf, acc_test_clf),
+  Conjunto = rep(c("Entrenamiento", "Validación"), each = length(tamanos_clf))
+)
+
+ggplot(curva_clf, aes(x = Tamano, y = Accuracy, color = Conjunto)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(title = "Curva de aprendizaje – Clasificación (Modelo 1, size=4)",
+       x = "Volumen de datos de entrenamiento",
+       y = "Exactitud (Accuracy)")
+```
+
 ```{r inciso 8}
 
 set.seed(123)
@@ -227,11 +315,170 @@ resultados_curva <- data.frame(
 
 
 ggplot(resultados_curva, aes(x = Tamano, y = RMSE, color = Conjunto)) +
-  geom_line(size = 1) + 
-  geom_point(size = 3) + 
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
   theme_minimal() +
-  labs(title = "Evolución del error predictivo", 
+  labs(title = "Evolución del error predictivo",
        subtitle = "Análisis de curva de aprendizaje",
-       x = "Volumen de datos de entrenamiento", 
-       y = "Error cuadrático medio")
-``` 
+       x = "Volumen de datos de entrenamiento",
+       y = "Error cuadrático medio (RMSE)")
+```
+
+```{r inciso 13 - tunear modelo regresion}
+set.seed(123)
+
+control_reg <- trainControl(method = "cv", number = 5)
+
+grid_reg <- expand.grid(
+  size  = c(5, 10, 15),
+  decay = c(0.001, 0.01, 0.1)
+)
+
+modelo_reg_tuneado <- train(
+  price ~ accommodates + bathrooms_num + bedrooms + beds +
+    host_response_rate + host_acceptance_rate +
+    calculated_host_listings_count + number_of_reviews +
+    reviews_per_month + review_scores_rating +
+    minimum_nights + availability_365 +
+    room_type + host_is_superhost + instant_bookable + bathroom_type,
+  data      = train,
+  method    = "nnet",
+  linout    = TRUE,
+  tuneGrid  = grid_reg,
+  trControl = control_reg,
+  maxit     = 500,
+  trace     = FALSE
+)
+
+print(modelo_reg_tuneado$bestTune)
+
+pred_reg_tuneado     <- predict(modelo_reg_tuneado, newdata = test)
+metricas_reg_tuneado <- postResample(pred = pred_reg_tuneado, obs = test$price)
+cat("Métricas del modelo de regresión tuneado (RNA):\n")
+print(metricas_reg_tuneado)
+```
+
+### Comparación con algoritmos de entregas anteriores
+
+```{r inciso 14-16 - comparacion algoritmos anteriores}
+# Métricas RNA (calculadas en esta entrega)
+rmse_rna <- metricas_reg_tuneado["RMSE"]
+r2_rna   <- metricas_reg_tuneado["Rsquared"]
+acc_rna  <- matriz_tuneada$overall["Accuracy"]
+
+# ── Tabla comparativa de REGRESIÓN (predecir precio) ─────────────────────────
+# Resultados de entregas anteriores (mismas condiciones: seed=123, 70/30, 10k obs)
+tabla_regresion <- data.frame(
+  Algoritmo = c(
+    "Naive Bayes (Lab 5)",
+    "Lasso – Reg. Lineal (Lab 3)",
+    "SVM Radial (Lab 8)",
+    "Árbol de Regresión prof=6 (Lab 4)",
+    "KNN k=7 (Lab 6)",
+    "Random Forest 100 árboles (Lab 4)",
+    "RNA tuneada (Lab 9)"
+  ),
+  RMSE = c(9457.00, 4168.63, 3077.35, 2478.74, 2456.05, 2410.27, round(rmse_rna, 2)),
+  R2   = c(0.09,    0.030,   0.4179,  0.665,   0.619,   0.691,   round(r2_rna,   4))
+)
+cat("=== Comparación de modelos de REGRESIÓN (menor RMSE = mejor) ===\n")
+print(tabla_regresion[order(tabla_regresion$RMSE), ])
+
+# ── Tabla comparativa de CLASIFICACIÓN (categoría de precio 3 clases) ────────
+# Resultados de entregas anteriores (mismas condiciones)
+tabla_clasificacion <- data.frame(
+  Algoritmo = c(
+    "Árbol base (Lab 4)",
+    "Naive Bayes (Lab 5)",
+    "Reg. Logística multinomial (Lab 7)",
+    "KNN k=7 (Lab 6)",
+    "Árbol prof=9 (Lab 4)",
+    "SVM Polinomial (Lab 8)",
+    "Random Forest 100 árboles (Lab 4)",
+    "RNA tuneada (Lab 9)"
+  ),
+  Accuracy = c(0.5687, 0.5700, 0.6050, 0.6217, 0.6286, 0.6463, 0.6697,
+               round(acc_rna, 4)),
+  Kappa    = c(0.3527, NA,     0.4071, 0.4321, 0.4427, 0.4692, 0.5046,
+               round(matriz_tuneada$overall["Kappa"], 4))
+)
+cat("\n=== Comparación de modelos de CLASIFICACIÓN (mayor Accuracy = mejor) ===\n")
+print(tabla_clasificacion[order(tabla_clasificacion$Accuracy), ])
+
+# ── Gráfico comparativo de regresión ─────────────────────────────────────────
+library(ggplot2)
+ggplot(tabla_regresion, aes(x = reorder(Algoritmo, RMSE), y = RMSE, fill = Algoritmo)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Comparación de RMSE – Modelos de Regresión",
+       x = NULL, y = "RMSE (menor es mejor)")
+
+# ── Gráfico comparativo de clasificación ─────────────────────────────────────
+ggplot(tabla_clasificacion, aes(x = reorder(Algoritmo, Accuracy), y = Accuracy, fill = Algoritmo)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Comparación de Accuracy – Modelos de Clasificación",
+       x = NULL, y = "Accuracy (mayor es mejor)")
+```
+
+### Análisis de sobreajuste global y conclusiones
+
+```{r inciso 17-18 - conclusiones y sobreajuste}
+# Diferencia entre accuracy de entrenamiento y prueba para cada modelo de clasificación
+acc_train_final_clf <- mean(
+  predict(modelo_nn1, newdata = train, type = "class") == as.character(train$price_cat)
+)
+acc_test_final_clf  <- matriz_nn1$overall["Accuracy"]
+
+acc_train_final_nn2 <- mean(
+  predict(modelo_nn2, newdata = train, type = "class") == as.character(train$price_cat)
+)
+acc_test_final_nn2  <- matriz_nn2$overall["Accuracy"]
+
+# Diferencia entre RMSE de entrenamiento y prueba para modelos de regresión
+rmse_train_reg1 <- RMSE(predict(modelo_reg1, newdata = train), train$price)
+rmse_test_reg1  <- metricas_reg1["RMSE"]
+
+rmse_train_reg2 <- RMSE(predict(modelo_reg2, newdata = train), train$price)
+rmse_test_reg2  <- metricas_reg2["RMSE"]
+
+# Tabla de sobreajuste
+tabla_sobreajuste <- data.frame(
+  Modelo = c(
+    "Clasificación – RNA Modelo 1 (size=4)",
+    "Clasificación – RNA Modelo 2 (size=10)",
+    "Regresión – RNA Modelo 1 (size=5)",
+    "Regresión – RNA Modelo 2 (size=12)"
+  ),
+  Metrica_Train = c(
+    round(acc_train_final_clf,  4),
+    round(acc_train_final_nn2,  4),
+    round(rmse_train_reg1,      2),
+    round(rmse_train_reg2,      2)
+  ),
+  Metrica_Test = c(
+    round(acc_test_final_clf,   4),
+    round(acc_test_final_nn2,   4),
+    round(rmse_test_reg1,       2),
+    round(rmse_test_reg2,       2)
+  ),
+  Diferencia = c(
+    round(acc_train_final_clf - acc_test_final_clf,  4),
+    round(acc_train_final_nn2 - acc_test_final_nn2,  4),
+    round(rmse_test_reg1      - rmse_train_reg1,     2),
+    round(rmse_test_reg2      - rmse_train_reg2,     2)
+  ),
+  Metrica = c("Accuracy (↑ mejor)", "Accuracy (↑ mejor)",
+               "RMSE (↓ mejor)",    "RMSE (↓ mejor)")
+)
+
+cat("=== Análisis de sobreajuste por modelo ===\n")
+print(tabla_sobreajuste)
+cat("\nInterpretación: diferencia Train vs Test\n")
+cat("  Clasificación – diferencia grande en Accuracy indica sobreajuste.\n")
+cat("  Regresión     – RMSE_test >> RMSE_train indica sobreajuste.\n")
+```
